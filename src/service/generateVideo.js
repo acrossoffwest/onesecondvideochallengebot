@@ -10,7 +10,10 @@ module.exports = async (ctx, chat, seconds) => {
         where: {
             chatId: chat.id
         },
-        limit: seconds
+        limit: seconds,
+        order: [
+            ['createdAt', 'ASC']
+        ]
     });
     if (videos.length === 0) {
         ctx.reply('You don\'t have any video clips to compile');

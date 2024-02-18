@@ -23,6 +23,10 @@ module.exports = (sequelize, DataTypes) => {
     chatId: {
       type: DataTypes.NUMBER,
       field: 'chat_id'
+    },
+    createdAt: {
+      type: DataTypes.STRING,
+      field: 'created_at'
     }
   }, {
     sequelize,
