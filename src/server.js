@@ -10,7 +10,7 @@ const fetch = require('node-fetch');
 const {Video, Chat, User} = require("./models");
 const scheduler = require('./scheduler');
 const ffmpeg = require('fluent-ffmpeg');
-const {unlinkSync, readFileSync} = require("fs");
+const {unlinkSync, readFileSync, writeFileSync} = require("fs");
 const os = require("os");
 const path = require("path");
 
@@ -53,35 +53,13 @@ bot.on('video', async (ctx) => {
     const fileLink = await ctx.telegram.getFileLink(ctx.message.video.file_id);
     const response = await fetch(fileLink.href);
     const buffer = await response.buffer();
-    const filepath = `${ctx.message.video.file_id}.mp4`;
-    s3.putObject(process.env.S3_BUCKET, filepath, buffer, async (err, etag) => {
-        if (err) {
-            return console.log(err);
-        }
-        console.log('File uploaded successfully.');
-        const chat = await Chat.findOne({
-            where: {
-                telegramChatId: ctx.chat.id
-            }
-        });
-        await Video.create({
-            filepath: filepath,
-            chatId: chat.id
-        });
-        ctx.reply(`Video saved`)
-    });
-})
-bot.on('video', async (ctx) => {
-    const fileLink = await ctx.telegram.getFileLink(ctx.message.video.file_id);
-    const response = await fetch(fileLink.href);
-    const buffer = await response.buffer();
 
     const tempDir = os.tmpdir();
     const resultTempFilename = `${ctx.message.video.file_id}.mp4`
     const tempFilename = `${ctx.message.video.file_id}-temp.mp4`
     const tempFilePath = path.join(tempDir, tempFilename);
     const tempResultFilePath = path.join(tempDir, resultTempFilename);
-    fs.writeFileSync(tempFilePath, buffer);
+    writeFileSync(tempFilePath, buffer);
     const filepath = `${ctx.message.video.file_id}.mp4`;
 
     ffmpeg(tempFilePath)
@@ -90,13 +68,7 @@ bot.on('video', async (ctx) => {
         .on('end', async function() {
             const convertedBuffer = readFileSync(tempResultFilePath);
 
-            const s3Params = {
-                Bucket: process.env.S3_BUCKET,
-                Key: filepath,
-                Body: convertedBuffer
-            };
-
-            s3.putObject(s3Params, async (err, data) => {
+            s3.putObject(process.env.S3_BUCKET, filepath, convertedBuffer, async (err, etag) => {
                 if (err) {
                     console.log(err);
                     return;
