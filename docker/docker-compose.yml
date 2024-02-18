@@ -17,12 +17,10 @@ services:
       - database
 
   node:
-    image: 'node:18.0-alpine3.15'
+    build: ./node
     restart: unless-stopped
     volumes:
       - ../:/var/www/html
-    working_dir: /var/www/html
-    command: npm run start
     networks:
       - database
 
