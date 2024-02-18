@@ -9,6 +9,10 @@ const generateVideo = require('./service/generateVideo');
 const fetch = require('node-fetch');
 const {Video, Chat, User} = require("./models");
 const scheduler = require('./scheduler');
+const ffmpeg = require('fluent-ffmpeg');
+const {unlinkSync, readFileSync} = require("fs");
+const os = require("os");
+const path = require("path");
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
@@ -67,6 +71,56 @@ bot.on('video', async (ctx) => {
         ctx.reply(`Video saved`)
     });
 })
+bot.on('video', async (ctx) => {
+    const fileLink = await ctx.telegram.getFileLink(ctx.message.video.file_id);
+    const response = await fetch(fileLink.href);
+    const buffer = await response.buffer();
+
+    const tempDir = os.tmpdir();
+    const resultTempFilename = `${ctx.message.video.file_id}.mp4`
+    const tempFilename = `${ctx.message.video.file_id}-temp.mp4`
+    const tempFilePath = path.join(tempDir, tempFilename);
+    const tempResultFilePath = path.join(tempDir, resultTempFilename);
+    fs.writeFileSync(tempFilePath, buffer);
+    const filepath = `${ctx.message.video.file_id}.mp4`;
+
+    ffmpeg(tempFilePath)
+        .outputOptions('-c:v libx264')
+        .saveToFile(tempResultFilePath)
+        .on('end', async function() {
+            const convertedBuffer = readFileSync(tempResultFilePath);
+
+            const s3Params = {
+                Bucket: process.env.S3_BUCKET,
+                Key: filepath,
+                Body: convertedBuffer
+            };
+
+            s3.putObject(s3Params, async (err, data) => {
+                if (err) {
+                    console.log(err);
+                    return;
+                }
+
+                const chat = await Chat.findOne({
+                    where: {
+                        telegramChatId: ctx.chat.id
+                    }
+                });
+                await Video.create({
+                    filepath: filepath,
+                    chatId: chat.id
+                });
+                ctx.reply(`Video saved`);
+            });
+
+            unlinkSync(tempFilePath);
+            unlinkSync(tempResultFilePath);
+        })
+        .on('error', function(err){
+            console.log('an error happened: ' + err.message);
+        });
+});
 bot.launch();
 
 // Enable graceful stop
