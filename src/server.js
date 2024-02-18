@@ -36,6 +36,7 @@ bot.hears('/list', async (ctx) => {
 });
 bot.hears('/generate', async (ctx) => {
     const chat = await Chat.findOne({where: { telegramChatId: ctx.chat.id }});
+    ctx.reply('Working on it...')
     await generateVideo(ctx, chat, 5);
 });
 bot.on('video', async (ctx) => {
