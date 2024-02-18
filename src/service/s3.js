@@ -8,4 +8,12 @@ const minioClient = new Minio.Client({
     secretKey: process.env.S3_SECRET_ACCESS_KEY,
 });
 
+minioClient.defaultBucket = process.env.S3_BUCKET;
+
+minioClient.getPresignedUrl = async (filepath) => {
+    let expiry = 24*60*60;
+
+    return await minioClient.presignedGetObject(minioClient.defaultBucket, filepath, expiry);
+}
+
 module.exports = minioClient;
