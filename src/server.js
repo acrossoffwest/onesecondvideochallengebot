@@ -34,10 +34,16 @@ bot.hears('/list', async (ctx) => {
     const videos = await Video.findAll({where: { chatId: chat.id }});
     ctx.reply(`You have ${videos.length} videos clips`);
 });
-bot.hears('/generate', async (ctx) => {
+bot.command('generate', async (ctx) => {
+    const text = ctx.message.text;
+    const splitText = text.split(' ');
+    console.log(splitText)
+    const count = Math.max(splitText.length >= 2 ? parseInt(splitText[1]) : 30, 2);
+
     const chat = await Chat.findOne({where: { telegramChatId: ctx.chat.id }});
     ctx.reply('Working on it...')
-    await generateVideo(ctx, chat, 5);
+    console.log(`Compile ${count} video clips as one`)
+    await generateVideo(ctx, chat, count);
 });
 bot.on('video', async (ctx) => {
     const fileLink = await ctx.telegram.getFileLink(ctx.message.video.file_id);
