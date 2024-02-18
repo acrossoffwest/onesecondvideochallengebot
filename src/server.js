@@ -5,18 +5,14 @@ const saveUser = require('./middleware/saveUser');
 const saveChat = require('./middleware/saveChat');
 const saveMessage = require('./middleware/saveMessage');
 const s3 = require('./service/s3');
+const generateVideo = require('./service/generateVideo');
 const fetch = require('node-fetch');
 const {Video, Chat, User} = require("./models");
-const cron = require('node-cron');
+const scheduler = require('./scheduler');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
-cron.schedule('30 12 * * * *', async () => {
-    const chats = await Chat.findAll();
-    chats?.forEach((chat) => {
-        bot.telegram.sendMessage(chat.telegramChatId, 'Wake up, make a video and get your nice video at the end of month.');
-    });
-});
+scheduler();
 
 bot.use(async (ctx, next) => {
     const chat = await saveChat(ctx);
@@ -36,7 +32,11 @@ bot.hears('hi', (ctx) => ctx.reply('Hey there'));
 bot.hears('/list', async (ctx) => {
     const chat = await Chat.findOne({where: { telegramChatId: ctx.chat.id }});
     const videos = await Video.findAll({where: { chatId: chat.id }});
-    ctx.reply(`You have ${videos.length} videos clips`)
+    ctx.reply(`You have ${videos.length} videos clips`);
+});
+bot.hears('/generate', async (ctx) => {
+    const chat = await Chat.findOne({where: { telegramChatId: ctx.chat.id }});
+    await generateVideo(ctx, chat, 5);
 });
 bot.on('video', async (ctx) => {
     const fileLink = await ctx.telegram.getFileLink(ctx.message.video.file_id);
