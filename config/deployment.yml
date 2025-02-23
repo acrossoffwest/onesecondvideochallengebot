@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: onesecondvideochallengebot
+  labels:
+    app: onesecondvideochallengebot
+  namespace: applications
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: onesecondvideochallengebot
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  minReadySeconds: 5
+  template:
+    metadata:
+      labels:
+        app: onesecondvideochallengebot
+    spec:
+      containers:
+        - name: onesecondvideochallengebot
+          envFrom:
+            - secretRef:
+                name: onesecondvideochallengebot-secret
+          image: <IMAGE>
+          ports:
+            - containerPort: 3000
+      imagePullSecrets:
+        - name: dockerhub-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: onesecondvideochallengebot-service
+  namespace: applications
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+  selector:
+    app: onesecondvideochallengebot

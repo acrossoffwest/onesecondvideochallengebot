@@ -15,7 +15,9 @@ services:
       - database
 
   node:
-    build: ./node
+    build:
+        context: ../
+        dockerfile: Dockerfile
     restart: unless-stopped
     volumes:
       - ../:/var/www/html
