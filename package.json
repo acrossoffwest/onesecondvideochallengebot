@@ -24,7 +24,7 @@
     "telegraf": "^4.15.3"
   },
   "devDependencies": {
-    "dotenv": "^16.4.4",
+    "dotenv": "^16.4.7",
     "nodemon": "^3.0.3",
     "sequelize-cli": "^6.6.2"
   }
