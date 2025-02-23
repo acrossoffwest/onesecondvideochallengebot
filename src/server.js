@@ -28,7 +28,7 @@ bot.use(async (ctx, next) => {
 bot.start((ctx) => ctx.reply(`
 Welcome and let\'s start our 1 second video challenge journey.
 
-I will send you a daily reminder to record a 1 second video and every month I will generate 30 second video which you sent to me.
+I will send you a daily reminder to record a 1-3 seconds video and every month I will generate 30-90 seconds video which you sent to me.
  
 Also 368 seconds video if you will rich that point.
 `));
@@ -95,7 +95,7 @@ bot.on('video', async (ctx) => {
 });
 bot.launch();
 
-// Enable graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
+console.log('Bot is running');
