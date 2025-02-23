@@ -1,0 +1,87 @@
+name: Build and Push Docker Image to Docker Hub
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+env:
+  IMAGE_NAME: acrossoffwest/onesecondvideochallengebot
+
+jobs:
+  build:
+    name: push docker image to hub
+    runs-on: ubuntu-latest
+    steps:
+      - name: check repository
+        uses: actions/checkout@v4
+
+      - name: login to docker registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{secrets.DOCKERHUB_USERNAME}}
+          password: ${{secrets.DOCKERHUB_TOKEN}}
+
+      - name: Get the tag name
+        id: get_tag
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: build and push docker image to registry
+        uses: docker/build-push-action@v5
+        with:
+          context: ./
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ env.TAG_NAME }}
+            ${{ env.IMAGE_NAME }}:latest
+
+  deploy:
+    needs: [ build ]
+    if: success()
+    name: Deploy App
+    runs-on: ubuntu-latest
+    steps:
+      - name: check repository
+        uses: actions/checkout@v4
+
+      - name: Get the tag name
+        id: get_tag
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Update deployment file
+        run: TAG=$(echo $GITHUB_SHA | head -c7) && sed -i 's|<IMAGE>|${{ env.IMAGE_NAME }}:'${{ env.TAG_NAME }}'|' $GITHUB_WORKSPACE/config/deployment.yml
+
+      - name: Create and save kube config for k8s
+        run: rm -rf ~/.kube && mkdir ~/.kube && cd ~/.kube && touch config && echo "${{ secrets.CLUSTER_CONFIG }}" > config
+
+      - name: Create Docker Hub Secret
+        continue-on-error: true
+        run: kubectl create secret docker-registry dockerhub-secret -n applications --docker-server=https://index.docker.io/v1/ --docker-username=${{secrets.DOCKERHUB_USERNAME}} --docker-password=${{secrets.DOCKERHUB_TOKEN}}
+
+      - name: Create Kubernetes Secret
+        run: kubectl delete secret onesecondvideochallengebot-secret -n applications
+        continue-on-error: true
+
+      - name: Create Kubernetes Secret
+        run: |
+          kubectl create secret generic onesecondvideochallengebot-secret -n applications \
+            --from-literal=TELEGRAM_BOT_TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}" \
+            --from-literal=S3_ACCESS_KEY_ID=${{ secrets.S3_ACCESS_KEY_ID }} \
+            --from-literal=S3_SECRET_ACCESS_KEY=${{ secrets.S3_SECRET_ACCESS_KEY }} \
+            --from-literal=S3_BUCKET=${{ secrets.S3_BUCKET }} \
+            --from-literal=S3_ENDPOINT=${{ secrets.S3_ENDPOINT }} \
+            --from-literal=DB_DIALECT=${{ secrets.DB_DIALECT }} \
+            --from-literal=DB_HOST=${{ secrets.DB_HOST }} \
+            --from-literal=DB_PORT=${{ secrets.DB_PORT }} \
+            --from-literal=DB_USERNAME=${{ secrets.DB_USERNAME }} \
+            --from-literal=DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+            --from-literal=DB_DATABASE=${{ secrets.DB_DATABASE }}
+
+      - name: Deploy to DigitalOcean Kubernetes
+        run: kubectl apply -f $GITHUB_WORKSPACE/config/deployment.yml
+
+      - name: Verify deployment
+        run: kubectl rollout status -n applications deployment/onesecondvideochallengebot
+
+      - name: Remove k8s configs
+        run: rm -rf ~/.kube
